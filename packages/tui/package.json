@@ -1,0 +1,17 @@
+{
+  "name": "@kstack/tui",
+  "module": "index.tsx",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run index.tsx"
+  },
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "ink": "^7.0.1",
+    "react": "^19.2.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14"
+  }
+}
