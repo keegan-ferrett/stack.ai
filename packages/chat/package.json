@@ -1,0 +1,9 @@
+{
+  "name": "@kstack/chat",
+  "type": "module",
+  "private": true,
+  "main": "index.ts",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.92.0"
+  }
+}
