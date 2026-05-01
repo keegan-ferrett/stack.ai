@@ -42,7 +42,6 @@ export function createAnthropic(opts: CreateAnthropicOptions = {}): Provider {
 					system: request.system,
 					messages: request.messages.map(toAnthropicMessage),
 					tools: request.tools?.map(toAnthropicTool),
-					thinking: { type: "adaptive" },
 				},
 				{ signal: request.signal },
 			);
