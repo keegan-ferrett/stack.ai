@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
 	Box,
 	render,
@@ -15,11 +15,22 @@ import {
 	type Message,
 	type Provider,
 } from "@kstack/chat";
+import {
+	parseCommand,
+	type Command,
+	type CommandHost,
+} from "./commands.ts";
 
 const MODEL = "claude-haiku-4-5";
 
+const CAT_ART = [
+	" /\\_/\\",
+	"( o.o )",
+	" > ^ <",
+].join("\n");
+
 type Entry = {
-	role: "user" | "assistant";
+	role: "user" | "assistant" | "system";
 	text: string;
 	isError?: boolean;
 };
@@ -226,6 +237,14 @@ const VisualLineRow = ({ line }: { line: VisualLine }) => {
 			</Text>
 		);
 	}
+	if (entry.role === "system") {
+		return (
+			<Text>
+				<Text dimColor>• </Text>
+				<Text dimColor>{text}</Text>
+			</Text>
+		);
+	}
 	return (
 		<Text>
 			<Text color="cyan">‹ </Text>
@@ -234,7 +253,11 @@ const VisualLineRow = ({ line }: { line: VisualLine }) => {
 	);
 };
 
-const App = () => {
+type AppProps = {
+	externalCommands?: readonly Command[];
+};
+
+const App = ({ externalCommands = [] }: AppProps) => {
 	const { exit } = useApp();
 	const { rows } = useWindowSize();
 	const [entries, setEntries] = useState<Entry[]>([]);
@@ -244,15 +267,88 @@ const App = () => {
 		if (key.ctrl && input === "c") exit();
 	});
 
+	const host = useMemo<CommandHost>(
+		() => ({
+			print: (text, opts) =>
+				setEntries((previous) => [
+					...previous,
+					{ role: "system", text, isError: opts?.isError },
+				]),
+		}),
+		[],
+	);
+
+	const registry = useMemo<readonly Command[]>(() => {
+		const internal: Command[] = [
+			{
+				name: "clear",
+				description: "Clear chat history",
+				run: () => setEntries([]),
+			},
+			{
+				name: "exit",
+				description: "Exit the TUI",
+				run: () => exit(),
+			},
+			{
+				name: "cat",
+				description: "Print an ASCII cat",
+				run: (_args, h) => h.print(CAT_ART),
+			},
+		];
+		const all: Command[] = [...internal, ...externalCommands];
+		const help: Command = {
+			name: "help",
+			description: "List available commands",
+			run: (_args, h) => {
+				const lines = [help, ...all].map(
+					(c) => `/${c.name} — ${c.description}`,
+				);
+				h.print(lines.join("\n"));
+			},
+		};
+		return [help, ...all];
+	}, [externalCommands, exit]);
+
 	const handleSubmit = async (input: string) => {
 		if (input.length === 0 || isStreaming) return;
+
+		const parsed = parseCommand(input, registry);
+
+		if (parsed.kind === "command") {
+			setEntries((previous) => [...previous, { role: "user", text: input }]);
+			try {
+				await parsed.command.run(parsed.args, host);
+			} catch (error) {
+				host.print(error instanceof Error ? error.message : String(error), {
+					isError: true,
+				});
+			}
+			return;
+		}
+
+		if (parsed.kind === "unknown") {
+			setEntries((previous) => [
+				...previous,
+				{ role: "user", text: input },
+				{
+					role: "system",
+					text: `Unknown command: /${parsed.name}. Try /help.`,
+					isError: true,
+				},
+			]);
+			return;
+		}
+
 		if (!providerState.ok) return;
 
 		const userEntry: Entry = { role: "user", text: input };
-		const apiMessages: Message[] = [...entries, userEntry].map((entry) => ({
-			role: entry.role,
-			content: entry.text,
-		}));
+		const apiMessages: Message[] = [...entries, userEntry]
+			.filter((entry) => entry.role !== "system")
+			.map((entry) => ({
+				role: entry.role as "user" | "assistant",
+				content: entry.text,
+			}));
 
 		setEntries((previous) => [
 			...previous,
