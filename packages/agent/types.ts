@@ -1,5 +1,5 @@
 /**
- * Public surface of @kstack/tools. A `Tool` is the executor + view counterpart
+ * Public surface of @kstack/agent. A `Tool` is the executor + view counterpart
  * to the wire-level `ToolDefinition` in @kstack/chat: the same schema is sent
  * to the model, plus a runner the agent invokes, plus an optional view the
  * TUI renders for the resulting tool turn.

@@ -20,7 +20,7 @@ import {
 	runAgenticTurn,
 	type Tool,
 	type ToolResult,
-} from "@kstack/tools";
+} from "@kstack/agent";
 import {
 	parseCommand,
 	type Command,

@@ -1,5 +1,5 @@
 /**
- * Built-in tools shipped with @kstack/tools. Each entry is a worked example of
+ * Built-in tools shipped with @kstack/agent. Each entry is a worked example of
  * the executor + view pattern. Consumers can pass `coreTools` into their
  * registry composition and append package-specific tools alongside.
  */
