@@ -32,3 +32,9 @@ Input lines starting with `/` are intercepted by `commands.ts` and dispatched ag
 - To register cross-package commands, export a `Command` from another workspace and pass them via the `externalCommands` prop on `<App />`.
 
 System-role entries are UI-only and are filtered out before any history is sent to the model.
+
+## System prompt
+
+`SYSTEM.md` next to `index.tsx` is loaded once at startup and passed as `system` on every `provider.stream` call. Missing or empty file ⇒ no system prompt sent.
+
+The loader (`system-prompt.ts`) expands `@path/to/file.md` include directives — any line whose only content is `@<path>` is replaced by the contents of that file, with paths resolved relative to the file containing the directive. Includes are transitive; cycles and missing targets throw at startup. Mid-line `@mentions` are left alone.
