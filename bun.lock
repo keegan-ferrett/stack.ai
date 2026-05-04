@@ -15,10 +15,22 @@
         "@anthropic-ai/sdk": "^0.92.0",
       },
     },
+    "packages/tools": {
+      "name": "@kstack/tools",
+      "dependencies": {
+        "@kstack/chat": "workspace:*",
+        "ink": "^7.0.1",
+        "react": "^19.2.5",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+      },
+    },
     "packages/tui": {
       "name": "@kstack/tui",
       "dependencies": {
         "@kstack/chat": "workspace:*",
+        "@kstack/tools": "workspace:*",
         "chalk": "^5.6.2",
         "ink": "^7.0.1",
         "react": "^19.2.5",
@@ -36,6 +48,8 @@
     "@babel/runtime": ["@babel/runtime@7.29.2", "", {}, "sha512-JiDShH45zKHWyGe4ZNVRrCjBz8Nh9TMmZG1kh4QTK8hCBTWBi8Da+i7s1fJw7/lYpM4ccepSNfqzZ/QvABBi5g=="],
 
     "@kstack/chat": ["@kstack/chat@workspace:packages/chat"],
+
+    "@kstack/tools": ["@kstack/tools@workspace:packages/tools"],
 
     "@kstack/tui": ["@kstack/tui@workspace:packages/tui"],
 

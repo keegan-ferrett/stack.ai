@@ -16,6 +16,12 @@ import {
 	type Provider,
 } from "@kstack/chat";
 import {
+	coreTools,
+	runAgenticTurn,
+	type Tool,
+	type ToolResult,
+} from "@kstack/tools";
+import {
 	parseCommand,
 	type Command,
 	type CommandHost,
@@ -30,11 +36,22 @@ const CAT_ART = [
 	" > ^ <",
 ].join("\n");
 
-type Entry = {
+type TextEntry = {
+	kind: "text";
 	role: "user" | "assistant" | "system";
 	text: string;
 	isError?: boolean;
 };
+
+type ToolEntry = {
+	kind: "tool";
+	id: string;
+	tool: Tool;
+	input: unknown;
+	result?: ToolResult;
+};
+
+type Entry = TextEntry | ToolEntry;
 
 type ProviderState =
 	| { ok: true; provider: Provider }
@@ -152,17 +169,26 @@ type HistoryViewProps = {
 
 const PREFIX_WIDTH = 2;
 
-type VisualLine = {
-	entry: Entry;
-	text: string;
-	isFirst: boolean;
-};
+type VisualLine =
+	| { kind: "text"; entry: TextEntry; text: string; isFirst: boolean }
+	| { kind: "tool"; entry: ToolEntry };
 
+/**
+ * Tool entries are treated as opaque single-slot blocks for scroll accounting.
+ * Their views may visually span multiple terminal rows; in that case the
+ * line-based scroll math is approximate. Acceptable trade-off for now —
+ * exact measurement is a follow-up.
+ */
 function flattenEntries(entries: Entry[], width: number): VisualLine[] {
 	const wrapWidth = Math.max(1, width - PREFIX_WIDTH);
 	const lines: VisualLine[] = [];
 
 	for (const entry of entries) {
+		if (entry.kind === "tool") {
+			lines.push({ kind: "tool", entry });
+			continue;
+		}
+
 		const display =
 			entry.text.length > 0
 				? entry.text
@@ -174,12 +200,13 @@ function flattenEntries(entries: Entry[], width: number): VisualLine[] {
 
 		for (const paragraph of paragraphs) {
 			if (paragraph.length === 0) {
-				lines.push({ entry, text: "", isFirst });
+				lines.push({ kind: "text", entry, text: "", isFirst });
 				isFirst = false;
 				continue;
 			}
 			for (let pos = 0; pos < paragraph.length; pos += wrapWidth) {
 				lines.push({
+					kind: "text",
 					entry,
 					text: paragraph.slice(pos, pos + wrapWidth),
 					isFirst,
@@ -217,14 +244,22 @@ const HistoryView = ({ entries }: HistoryViewProps) => {
 
 	return (
 		<Box ref={ref} flexGrow={1} flexDirection="column" justifyContent="flex-end">
-			{visible.map((line, index) => (
-				<VisualLineRow key={start + index} line={line} />
-			))}
+			{visible.map((line, index) =>
+				line.kind === "tool" ? (
+					<ToolEntryRow key={start + index} entry={line.entry} />
+				) : (
+					<VisualLineRow key={start + index} line={line} />
+				),
+			)}
 		</Box>
 	);
 };
 
-const VisualLineRow = ({ line }: { line: VisualLine }) => {
+const VisualLineRow = ({
+	line,
+}: {
+	line: Extract<VisualLine, { kind: "text" }>;
+}) => {
 	const { entry, text, isFirst } = line;
 	if (!isFirst) {
 		return (
@@ -266,11 +301,42 @@ const VisualLineRow = ({ line }: { line: VisualLine }) => {
 	);
 };
 
-type AppProps = {
-	externalCommands?: readonly Command[];
+/**
+ * Renders a tool turn inline in the chat history. The TUI owns the
+ * "→ <name>" header so individual tools never have to print their own name;
+ * the body is whatever the tool's `view` returns, or a default text rendering
+ * of `result.content` if no view is provided.
+ */
+const ToolEntryRow = ({ entry }: { entry: ToolEntry }) => {
+	const view = entry.tool.view;
+	return (
+		<Box flexDirection="column">
+			<Text>
+				<Text color="magenta">→ </Text>
+				<Text color="magenta">{entry.tool.name}</Text>
+			</Text>
+			<Box paddingLeft={2}>
+				{view ? (
+					view({ input: entry.input, result: entry.result })
+				) : (
+					<Text dimColor={!entry.result}>
+						{entry.result ? entry.result.content : "(running…)"}
+					</Text>
+				)}
+			</Box>
+		</Box>
+	);
 };
 
-const App = ({ externalCommands = [] }: AppProps) => {
+type AppProps = {
+	externalCommands?: readonly Command[];
+	externalTools?: readonly Tool[];
+};
+
+const App = ({
+	externalCommands = [],
+	externalTools = [],
+}: AppProps) => {
 	const { exit } = useApp();
 	const { rows } = useWindowSize();
 	const [entries, setEntries] = useState<Entry[]>([]);
@@ -285,10 +351,15 @@ const App = ({ externalCommands = [] }: AppProps) => {
 			print: (text, opts) =>
 				setEntries((previous) => [
 					...previous,
-					{ role: "system", text, isError: opts?.isError },
+					{ kind: "text", role: "system", text, isError: opts?.isError },
 				]),
 		}),
 		[],
+	);
+
+	const allTools = useMemo<readonly Tool[]>(
+		() => [...coreTools, ...externalTools],
+		[externalTools],
 	);
 
 	const registry = useMemo<readonly Command[]>(() => {
@@ -329,7 +400,10 @@ const App = ({ externalCommands = [] }: AppProps) => {
 		const parsed = parseCommand(input, registry);
 
 		if (parsed.kind === "command") {
-			setEntries((previous) => [...previous, { role: "user", text: input }]);
+			setEntries((previous) => [
+				...previous,
+				{ kind: "text", role: "user", text: input },
+			]);
 			try {
 				await parsed.command.run(parsed.args, host);
 			} catch (error) {
@@ -343,8 +417,9 @@ const App = ({ externalCommands = [] }: AppProps) => {
 		if (parsed.kind === "unknown") {
 			setEntries((previous) => [
 				...previous,
-				{ role: "user", text: input },
+				{ kind: "text", role: "user", text: input },
 				{
+					kind: "text",
 					role: "system",
 					text: `Unknown command: /${parsed.name}. Try /help.`,
 					isError: true,
@@ -355,45 +430,50 @@ const App = ({ externalCommands = [] }: AppProps) => {
 
 		if (!providerState.ok) return;
 
-		const userEntry: Entry = { role: "user", text: input };
-		const apiMessages: Message[] = [...entries, userEntry]
-			.filter((entry) => entry.role !== "system")
-			.map((entry) => ({
-				role: entry.role as "user" | "assistant",
-				content: entry.text,
-			}));
+		const userEntry: TextEntry = { kind: "text", role: "user", text: input };
+		const apiMessages: Message[] = [...entries, userEntry].flatMap((entry) => {
+			if (entry.kind !== "text") return [];
+			if (entry.role === "system") return [];
+			return [{ role: entry.role, content: entry.text }];
+		});
 
-		setEntries((previous) => [
-			...previous,
-			userEntry,
-			{ role: "assistant", text: "" },
-		]);
+		setEntries((previous) => [...previous, userEntry]);
 		setIsStreaming(true);
 
 		try {
-			for await (const chunk of providerState.provider.stream({
-				model: MODEL,
-				system: systemPrompt,
-				messages: apiMessages,
-			})) {
-				if (chunk.type === "text_delta") {
+			for await (const event of runAgenticTurn(
+				providerState.provider,
+				{ model: MODEL, system: systemPrompt, messages: apiMessages },
+				allTools,
+			)) {
+				if (event.type === "text_delta") {
+					const text = event.text;
+					setEntries((previous) => appendAssistantText(previous, text));
+				} else if (event.type === "tool_call") {
+					const tool = allTools.find((t) => t.name === event.name);
+					if (!tool) continue;
+					const id = event.id;
+					const input = event.input;
+					setEntries((previous) => [
+						...previous,
+						{ kind: "tool", id, tool, input },
+					]);
+				} else if (event.type === "tool_result") {
+					const id = event.id;
+					const result = event.result;
 					setEntries((previous) =>
-						updateLastAssistant(previous, (last) => ({
-							...last,
-							text: last.text + chunk.text,
-						})),
+						previous.map((e) =>
+							e.kind === "tool" && e.id === id ? { ...e, result } : e,
+						),
 					);
 				}
 			}
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			setEntries((previous) =>
-				updateLastAssistant(previous, () => ({
-					role: "assistant",
-					text: message,
-					isError: true,
-				})),
-			);
+			setEntries((previous) => [
+				...previous,
+				{ kind: "text", role: "assistant", text: message, isError: true },
+			]);
 		} finally {
 			setIsStreaming(false);
 		}
@@ -441,13 +521,25 @@ const App = ({ externalCommands = [] }: AppProps) => {
 	);
 };
 
-function updateLastAssistant(
-	entries: Entry[],
-	transform: (last: Entry) => Entry,
-): Entry[] {
+/**
+ * Append streaming assistant text to the rolling assistant text entry, or
+ * start a new one if the last entry isn't an open assistant text entry (e.g.
+ * a tool entry just landed and the model is now back in text mode).
+ */
+function appendAssistantText(entries: Entry[], text: string): Entry[] {
 	const last = entries[entries.length - 1];
-	if (!last || last.role !== "assistant") return entries;
-	return [...entries.slice(0, -1), transform(last)];
+	if (
+		last &&
+		last.kind === "text" &&
+		last.role === "assistant" &&
+		!last.isError
+	) {
+		return [
+			...entries.slice(0, -1),
+			{ ...last, text: last.text + text },
+		];
+	}
+	return [...entries, { kind: "text", role: "assistant", text }];
 }
 
 render(<App />, { alternateScreen: true });
