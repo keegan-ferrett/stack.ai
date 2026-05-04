@@ -27,11 +27,14 @@ Terminal layout is Flexbox via Yoga.
 
 Input lines starting with `/` are intercepted by `commands.ts` and dispatched against a registry composed inside `App` at render time.
 
-- The public `Command` type takes a narrow `CommandHost` (currently just `print`) so commands defined in other packages stay decoupled from TUI internals.
-- Host-internal commands (`/clear`, `/exit`, `/help`) are constructed inside `App` and close over `setEntries` / `exit` directly — they do not flow through `CommandHost`.
+- The public `Command` type takes a narrow `CommandHost` so commands defined in other packages stay decoupled from TUI internals. Each capability on `CommandHost` is its own method — extend only when a clearly broad need emerges.
+- Host-internal commands (`/clear`, `/exit`, `/help`, `/cat-art`) are constructed inside `App` and close over local state setters directly — they do not flow through `CommandHost`. External commands receive the host argument.
 - To register cross-package commands, export a `Command` from another workspace and pass them via the `externalCommands` prop on `<App />`.
 
-System-role entries are UI-only and are filtered out before any history is sent to the model.
+`CommandHost` capabilities:
+
+- `print(text, opts?)` — append a system-role line to chat history. UI-only; system entries are filtered out before any history is sent to the model. Use this for commands that should leave a visible trace (e.g. `/cat`).
+- `openView(render)` — swap a custom view into the input bar's slot at the bottom of the screen, leaving chat history visible above. `render` is a fn `(close) => ReactElement`; the view may call `close()` to dismiss itself (e.g. a picker on selection). The host also wires Esc to dismiss and renders the dismissal hint. The view does **not** modify chat context — use this for transient UI like pickers, settings panels, or `/cat-art`.
 
 ## System prompt
 
