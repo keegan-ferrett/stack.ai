@@ -1,0 +1,6 @@
+# # Project Configuration
+#
+# Project configuration lets teams share repository-specific settings — hooks, dev server URLs, and other defaults. The file lives in `.config/wt.toml` and is typically checked into version control.
+
+pre-start = "bun install"
+
