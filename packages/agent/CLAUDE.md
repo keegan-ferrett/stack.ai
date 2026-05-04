@@ -9,6 +9,7 @@ Drives the agentic loop on top of `@kstack/chat`. Owns the `Tool` registry type,
 - `coreTools` — built-in `Tool[]` shipped with the package. Consumers compose `[...coreTools, ...externalTools]` at registry construction time. Built-ins:
   - `current_time` — returns the current date/time in ISO 8601 format.
   - `read_file` — reads a text file (`text/*` mimetype) at a relative path and returns its full body to the model.
+  - `write_file` — writes a text file at a relative path, creating any missing parent directories. Overwrites existing files.
 
 ## Tool = executor + view
 
