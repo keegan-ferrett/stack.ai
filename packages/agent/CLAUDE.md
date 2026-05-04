@@ -6,7 +6,9 @@ Drives the agentic loop on top of `@kstack/chat`. Owns the `Tool` registry type,
 
 - `runAgenticTurn(provider, request, tools) → AsyncGenerator<AgentEvent>` — the loop driver. Streams `text_delta` events from the provider, accumulates `tool_use_*` chunks per id, dispatches matched tools when the model stops with `tool_use`, appends results to a private message history, and re-calls until the model finishes.
 - `Tool`, `ToolView`, `ToolResult`, `AgentEvent` types in `types.ts`.
-- `coreTools` — built-in `Tool[]` shipped with the package (currently just `current_time`). Consumers compose `[...coreTools, ...externalTools]` at registry construction time.
+- `coreTools` — built-in `Tool[]` shipped with the package. Consumers compose `[...coreTools, ...externalTools]` at registry construction time. Built-ins:
+  - `current_time` — returns the current date/time in ISO 8601 format.
+  - `read_file` — reads a text file (`text/*` mimetype) at a relative path and returns its full body to the model.
 
 ## Tool = executor + view
 

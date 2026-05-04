@@ -1,11 +1,12 @@
 /**
- * Built-in tools shipped with @kstack/agent. Each entry is a worked example of
- * the executor + view pattern. Consumers can pass `coreTools` into their
- * registry composition and append package-specific tools alongside.
+ * Built-in tools shipped with @kstack/agent. Each tool lives in its own file
+ * under `tools/`; this module aggregates them into the `coreTools` array that
+ * consumers compose alongside their own tools at registry construction time.
  */
 
 import { Text } from "ink";
 import type { Tool } from "./types.ts";
+import { readFile } from "./tools/read-file.tsx";
 
 const currentTime: Tool = {
 	name: "current_time",
@@ -32,4 +33,4 @@ const currentTime: Tool = {
 	},
 };
 
-export const coreTools: readonly Tool[] = [currentTime];
+export const coreTools: readonly Tool[] = [currentTime, readFile];
