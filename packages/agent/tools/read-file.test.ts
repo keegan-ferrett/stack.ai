@@ -2,10 +2,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { coreTools } from "./core.tsx";
-
-const readFile = coreTools.find((t) => t.name === "read_file");
-if (!readFile) throw new Error("read_file tool missing from coreTools");
+import { readFile } from "./read-file.tsx";
 
 let dir: string;
 
