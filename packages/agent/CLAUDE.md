@@ -10,6 +10,7 @@ Drives the agentic loop on top of `@kstack/chat`. Owns the `Tool` registry type,
   - `current_time` — returns the current date/time in ISO 8601 format.
   - `read_file` — reads a text file (`text/*` mimetype) at a relative path and returns its full body to the model.
   - `write_file` — writes a text file at a relative path, creating any missing parent directories. Overwrites existing files.
+  - `tree` — lists files and directories under a target directory as an indented tree (each line tagged `[dir]` or `[file]`); respects the target's root `.gitignore`/`.ignore` and always elides `.git`. Optional `target_directory` (defaults to cwd) and `depth` (defaults to 3).
 
 ## Tool = executor + view
 
