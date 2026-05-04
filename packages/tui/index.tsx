@@ -25,6 +25,7 @@ import {
 	parseCommand,
 	type Command,
 	type CommandHost,
+	type OverlayRender,
 } from "./commands.ts";
 import { compileMarkdown } from "./system-prompt.ts";
 
@@ -34,6 +35,14 @@ const CAT_ART = [
 	" /\\_/\\",
 	"( o.o )",
 	" > ^ <",
+].join("\n");
+
+const CAT_ART_GALLERY = [
+	"   /\\_/\\        /\\_/\\        /\\_/\\",
+	"  ( o.o )      ( -.- )      ( ^.^ )",
+	"   > ^ <        > ~ <        > w <",
+	"",
+	"  curious      sleepy       happy",
 ].join("\n");
 
 type TextEntry = {
@@ -328,6 +337,22 @@ const ToolEntryRow = ({ entry }: { entry: ToolEntry }) => {
 	);
 };
 
+/**
+ * Chrome around an overlay view opened via `CommandHost.openView`. Sits in the
+ * input bar's slot at the bottom of the screen — history stays visible above —
+ * and prints the dismissal hint so individual views don't have to. Esc
+ * handling lives on `App` so it works regardless of whether the inner view
+ * consumes input.
+ */
+const OverlayPane = ({ children }: { children: React.ReactNode }) => (
+	<Box flexDirection="column">
+		{children}
+		<Box paddingX={1}>
+			<Text dimColor>esc to close</Text>
+		</Box>
+	</Box>
+);
+
 type AppProps = {
 	externalCommands?: readonly Command[];
 	externalTools?: readonly Tool[];
@@ -341,9 +366,16 @@ const App = ({
 	const { rows } = useWindowSize();
 	const [entries, setEntries] = useState<Entry[]>([]);
 	const [isStreaming, setIsStreaming] = useState(false);
+	const [overlay, setOverlay] = useState<OverlayRender | null>(null);
 
 	useInput((input, key) => {
-		if (key.ctrl && input === "c") exit();
+		if (key.ctrl && input === "c") {
+			exit();
+			return;
+		}
+		if (key.escape && overlay) {
+			setOverlay(null);
+		}
 	});
 
 	const host = useMemo<CommandHost>(
@@ -353,6 +385,9 @@ const App = ({
 					...previous,
 					{ kind: "text", role: "system", text, isError: opts?.isError },
 				]),
+			// Wrap in an updater so React doesn't invoke `render` as a state-updater
+			// fn — `OverlayRender` is itself a function value.
+			openView: (render) => setOverlay(() => render),
 		}),
 		[],
 	);
@@ -378,6 +413,28 @@ const App = ({
 				name: "cat",
 				description: "Print an ASCII cat",
 				run: (_args, h) => h.print(CAT_ART),
+			},
+			{
+				name: "cat-art",
+				description: "Open a cat art view (esc to close)",
+				run: () =>
+					setOverlay(() => () => (
+						<Box
+							borderStyle="round"
+							borderColor="magenta"
+							paddingX={2}
+							paddingY={1}
+							flexDirection="column"
+							alignItems="center"
+						>
+							<Text bold color="magenta">
+								cat art gallery
+							</Text>
+							<Box marginTop={1}>
+								<Text>{CAT_ART_GALLERY}</Text>
+							</Box>
+						</Box>
+					)),
 			},
 		];
 		const all: Command[] = [...internal, ...externalCommands];
@@ -501,22 +558,24 @@ const App = ({
 		? "claude is replying — ctrl+c to quit"
 		: "type a message and press enter — ctrl+c to quit";
 
+	const inputBorderColor = isStreaming ? "yellow" : "green";
+
 	return (
 		<Box flexDirection="column" height={rows}>
 			<Header title="kstack" subtitle={`chat — ${MODEL}`} />
 			<HistoryView entries={entries} />
-			<Box
-				borderStyle="round"
-				borderColor={isStreaming ? "yellow" : "green"}
-				paddingX={1}
-			>
-				<Text color={isStreaming ? "yellow" : "green"}>{"> "}</Text>
-				<TextInput
-					placeholder={placeholder}
-					disabled={isStreaming}
-					onSubmit={handleSubmit}
-				/>
-			</Box>
+			{overlay ? (
+				<OverlayPane>{overlay(() => setOverlay(null))}</OverlayPane>
+			) : (
+				<Box borderStyle="round" borderColor={inputBorderColor} paddingX={1}>
+					<Text color={inputBorderColor}>{"> "}</Text>
+					<TextInput
+						placeholder={placeholder}
+						disabled={isStreaming}
+						onSubmit={handleSubmit}
+					/>
+				</Box>
+			)}
 		</Box>
 	);
 };

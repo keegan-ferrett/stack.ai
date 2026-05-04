@@ -1,10 +1,31 @@
+import type { ReactElement } from "react";
+
+/**
+ * Render fn for an overlay opened via `CommandHost.openView`. The view
+ * receives a `close` callback it may call to dismiss itself when its task
+ * completes (e.g. a picker closing on selection). The host also closes the
+ * overlay on Esc, so views don't need to handle dismissal themselves unless
+ * they want a programmatic exit point.
+ */
+export type OverlayRender = (close: () => void) => ReactElement;
+
 /**
  * The narrow surface a command sees when it runs. Kept deliberately small so
  * commands shipped from other packages depend on as little of the TUI as
- * possible. Extend only when a clearly broad capability emerges.
+ * possible. Each capability is its own method rather than a single bag of
+ * helpers — extend only when a clearly broad need emerges.
+ *
+ * - `print` adds a system-role line to chat history (visible to the user,
+ *   excluded from messages sent to the model).
+ * - `openView` swaps a custom React view into the input bar's slot at the
+ *   bottom of the screen — history stays visible above. Esc dismisses the
+ *   overlay; the view may also call its `close` arg to dismiss itself. Use
+ *   this for command UI that should not pollute the agent's context
+ *   (e.g. pickers, transient art, settings panels).
  */
 export type CommandHost = {
 	print(text: string, opts?: { isError?: boolean }): void;
+	openView(render: OverlayRender): void;
 };
 
 /**
