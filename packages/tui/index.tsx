@@ -20,6 +20,7 @@ import {
 	type Command,
 	type CommandHost,
 } from "./commands.ts";
+import { compileMarkdown } from "./system-prompt.ts";
 
 const MODEL = "claude-haiku-4-5";
 
@@ -51,6 +52,18 @@ const providerState: ProviderState = (() => {
 			error: error instanceof Error ? error.message : String(error),
 		};
 	}
+})();
+
+/**
+ * System prompt shipped with the TUI. Loaded once at startup from SYSTEM.md
+ * next to this entry file, with `@path/to/file.md` includes expanded relative
+ * to each containing file. Missing/empty SYSTEM.md means no system prompt.
+ */
+const systemPrompt: string | undefined = await (async () => {
+	const path = `${import.meta.dir}/SYSTEM.md`;
+	if (!(await Bun.file(path).exists())) return undefined;
+	const compiled = (await compileMarkdown(path)).trim();
+	return compiled.length > 0 ? compiled : undefined;
 })();
 
 type HeaderProps = {
@@ -360,6 +373,7 @@ const App = ({ externalCommands = [] }: AppProps) => {
 		try {
 			for await (const chunk of providerState.provider.stream({
 				model: MODEL,
+				system: systemPrompt,
 				messages: apiMessages,
 			})) {
 				if (chunk.type === "text_delta") {
