@@ -9,6 +9,17 @@
         "typescript": "^5",
       },
     },
+    "packages/agent": {
+      "name": "@kstack/agent",
+      "dependencies": {
+        "@kstack/chat": "workspace:*",
+        "ink": "^7.0.1",
+        "react": "^19.2.5",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+      },
+    },
     "packages/chat": {
       "name": "@kstack/chat",
       "dependencies": {
@@ -18,6 +29,7 @@
     "packages/tui": {
       "name": "@kstack/tui",
       "dependencies": {
+        "@kstack/agent": "workspace:*",
         "@kstack/chat": "workspace:*",
         "chalk": "^5.6.2",
         "ink": "^7.0.1",
@@ -34,6 +46,8 @@
     "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.92.0", "", { "dependencies": { "json-schema-to-ts": "^3.1.1" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["zod"], "bin": { "anthropic-ai-sdk": "bin/cli" } }, "sha512-l653JFC83wCglH8H83t1xpgDurCyPyslYW1maPRdCsfuNuGbLvQjQ81sWd3Go3LWRm0jNspzAhuqAYV8r9joSw=="],
 
     "@babel/runtime": ["@babel/runtime@7.29.2", "", {}, "sha512-JiDShH45zKHWyGe4ZNVRrCjBz8Nh9TMmZG1kh4QTK8hCBTWBi8Da+i7s1fJw7/lYpM4ccepSNfqzZ/QvABBi5g=="],
+
+    "@kstack/agent": ["@kstack/agent@workspace:packages/agent"],
 
     "@kstack/chat": ["@kstack/chat@workspace:packages/chat"],
 

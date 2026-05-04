@@ -2,6 +2,9 @@
   "name": "kstack",
   "private": true,
   "type": "module",
+  "scripts": {
+    "start:tui": "cd packages/tui && bun start"
+  },
   "workspaces": [
     "packages/*"
   ],
