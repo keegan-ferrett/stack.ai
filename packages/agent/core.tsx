@@ -7,6 +7,7 @@
 import { Text } from "ink";
 import type { Tool } from "./types.ts";
 import { readFile } from "./tools/read-file.tsx";
+import { writeFile } from "./tools/write-file.tsx";
 
 const currentTime: Tool = {
 	name: "current_time",
@@ -33,4 +34,4 @@ const currentTime: Tool = {
 	},
 };
 
-export const coreTools: readonly Tool[] = [currentTime, readFile];
+export const coreTools: readonly Tool[] = [currentTime, readFile, writeFile];
